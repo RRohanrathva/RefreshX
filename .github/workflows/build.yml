@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Repo ma RefreshX.zip upload karelu hoy to te unzip kare chhe.
+      # Jo project files seedha upload karya hoy to unzip skip thase.
+      - name: Unzip project (if zip present)
+        run: |
+          if [ -f RefreshX.zip ]; then
+            mkdir -p proj
+            unzip -q -o RefreshX.zip -d proj
+            DIR=$(find proj -maxdepth 3 -name settings.gradle.kts -printf '%h\n' | head -n1)
+          else
+            DIR=$(find . -maxdepth 3 -name settings.gradle.kts -printf '%h\n' | head -n1)
+          fi
+          echo "Project dir: $DIR"
+          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build release APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RefreshX-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/*.apk
